@@ -1,4 +1,4 @@
-(ns think.config.core
+(ns tech.config.core
   (:require [environ.core :refer [env]]
             [clojure.java.classpath :as cp]
             [clojure.set :as set]
@@ -200,7 +200,7 @@
 
 (defmacro with-config
   [config-key-vals & body]
-  `(let [new-map# (#'think.config.core/coercing-merge (get-config-map) (apply hash-map ~config-key-vals))
+  `(let [new-map# (#'tech.config.core/coercing-merge (get-config-map) (apply hash-map ~config-key-vals))
          new-keys# (take-nth 2 ~config-key-vals)
          new-sources# (->> new-keys#
                            (map (fn [new-var#] [new-var# "with-config"]))

@@ -1,10 +1,10 @@
-(ns think.config.config-test
+(ns tech.config.config-test
   (:require [clojure.set :as set]
             [clojure.string :as s]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.test :refer :all]
-            [think.config.core :refer :all]))
+            [tech.config.core :refer :all]))
 
 (deftest config-test
   (testing "Config Test"
