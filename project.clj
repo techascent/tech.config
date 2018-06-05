@@ -1,4 +1,4 @@
-(defproject techascent/tech.config "0.3.5-SNAPSHOT"
+(defproject techascent/tech.config "0.3.5"
   :description "A configuartion library."
   :url "http://github.com/thinktopic/think.config"
 
