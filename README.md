@@ -1,15 +1,8 @@
-# think.config [![Build Status](https://travis-ci.com/thinktopic/think.config.svg?token=64MLcsqSTjE7SCpD6LB1&branch=master)](https://travis-ci.com/thinktopic/think.config)
+# tech.config [![Build Status](https://travis-ci.com/tech-ascent/tech.config.svg?token=64MLcsqSTjE7SCpD6LB1&branch=master)](https://travis-ci.com/techascent/tech.config)
 
-[![Clojars Project](https://img.shields.io/clojars/v/thinktopic/think.config.svg)](https://clojars.org/thinktopic/think.config)
+[![Clojars Project](https://img.shields.io/clojars/v/tech-ascent/tech.config.svg)](https://clojars.org/tech-ascent/tech.config)
 
-`think.config` is a Clojure library that abstracts configuration from files and env.
-
-<a href="https://www.thinktopic.com"><img src="https://cloud.githubusercontent.com/assets/17600203/21554632/6257d9b0-cdce-11e6-8fc6-1a04ec8e9664.jpg" width="200"/></a>
-
-Add this to your project.clj:
-```
-[thinktopic/think.config "0.3.4"]
-```
+`tech.config` is a Clojure library that abstracts configuration from files and env.
 
 The library works by reading config files named `*-config.edn` from the resources
 directory in the uberjar (or in the local repository if running on a repl).
