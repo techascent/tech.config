@@ -1,6 +1,6 @@
 # tech.config [![Build Status](https://travis-ci.com/tech-ascent/tech.config.svg?token=64MLcsqSTjE7SCpD6LB1&branch=master)](https://travis-ci.com/techascent/tech.config)
 
-[![Clojars Project](https://img.shields.io/clojars/v/tech-ascent/tech.config.svg)](https://clojars.org/tech-ascent/tech.config)
+[![Clojars Project](https://img.shields.io/clojars/v/techascent/tech.config.svg)](https://clojars.org/techascent/tech.config)
 
 `tech.config` is a Clojure library that abstracts configuration from files and env.
 
