@@ -1,6 +1,6 @@
 (defproject techascent/tech.config "0.3.6-SNAPSHOT"
-  :description "A configuartion library."
-  :url "http://github.com/thinktopic/think.config"
+  :description "A configuration library."
+  :url "http://github.com/tech-ascent/tech.config"
 
   :plugins [[lein-environ "1.1.0"]]
 
