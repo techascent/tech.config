@@ -1,4 +1,4 @@
-(defproject techascent/tech.config "0.3.6-SNAPSHOT"
+(defproject techascent/tech.config "0.3.6"
   :description "A configuration library."
   :url "http://github.com/techascent/tech.config"
 
