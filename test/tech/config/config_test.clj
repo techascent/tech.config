@@ -103,3 +103,11 @@
       (write-boolean-fn old-boolean-val)
       (reload-config!)
       (is (= (get-config :boolean) old-boolean-val)))))
+
+(deftest redact-keys-test
+  (testing "Ensure that we can redact certain keys."
+    (with-config [:secret-key "very-secret"]
+      (let [config-str-not-redacted (get-config-table-str :redact-keys [])
+            config-str-redacted (get-config-table-str :redact-keys [:secret-key])]
+        (is (not= (.indexOf config-str-not-redacted "very-secret") -1))
+        (is (= (.indexOf config-str-redacted "very-secret") -1))))))

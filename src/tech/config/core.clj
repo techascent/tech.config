@@ -153,7 +153,7 @@
 
 (defn get-config-table-str
   "Returns a nice string representation of the current config map."
-  [& {:keys [no-redact]
+  [& {:keys [no-redact redact-keys]
       :or {no-redact false}}]
   (let [table (->> (get-config-map)
                    (filter #(*config-keys* (first %)))
@@ -170,13 +170,18 @@
         (println (format (str "%-" key-width "s %-" val-width "s %-" src-width "s") "Key" "Value" "Source"))
         (println (apply str (repeat (+ key-width val-width src-width 2) "-")))
         (doseq [{:keys [key value source]} table]
-          (let [print-value (if (and (not no-redact)
-                                     (keyword? key)
-                                     (.contains (str key) "secret"))
-                              "[REDACTED]"
-                              (if (string? value)
-                                (format "\"%s\"" value)
-                                value))]
+          (let [print-value (cond (and (not no-redact)
+                                       redact-keys
+                                       ((set redact-keys) key))
+                                  "[REDACTED]"
+                                  (and (not no-redact)
+                                       (not redact-keys)
+                                       (or (.contains (str key) "secret")
+                                           (.contains (str key) "private")))
+                                  "[REDACTED]"
+                                  :default (if (string? value)
+                                             (format "\"%s\"" value)
+                                             value))]
             (println (format (str "%-" key-width "s %-" val-width "s %-" src-width "s")
                              key print-value source))))))))
 
