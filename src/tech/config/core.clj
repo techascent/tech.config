@@ -153,7 +153,8 @@
 
 (defn get-config-table-str
   "Returns a nice string representation of the current config map."
-  []
+  [& {:keys [no-redact redact-keys]
+      :or {no-redact false}}]
   (let [table (->> (get-config-map)
                    (filter #(*config-keys* (first %)))
                    (sort-by first)
@@ -169,8 +170,20 @@
         (println (format (str "%-" key-width "s %-" val-width "s %-" src-width "s") "Key" "Value" "Source"))
         (println (apply str (repeat (+ key-width val-width src-width 2) "-")))
         (doseq [{:keys [key value source]} table]
-          (println (format (str "%-" key-width "s %-" val-width "s %-" src-width "s")
-                           key (if (string? value) (format "\"%s\"" value) value) source)))))))
+          (let [print-value (cond (and (not no-redact)
+                                       redact-keys
+                                       ((set redact-keys) key))
+                                  "[REDACTED]"
+                                  (and (not no-redact)
+                                       (not redact-keys)
+                                       (or (.contains (str key) "secret")
+                                           (.contains (str key) "private")))
+                                  "[REDACTED]"
+                                  :default (if (string? value)
+                                             (format "\"%s\"" value)
+                                             value))]
+            (println (format (str "%-" key-width "s %-" val-width "s %-" src-width "s")
+                             key print-value source))))))))
 
 (defn unchecked-get-config
   "Get app config. Unlike `get-config`, doesn't coerce arguments and can return nil for missing config."

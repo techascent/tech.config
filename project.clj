@@ -2,6 +2,8 @@
   :description "A configuration library."
   :url "http://github.com/techascent/tech.config"
 
+  :min-lein-version "2.8.1"
+
   :plugins [[lein-environ "1.1.0"]
             [lein-tools-deps "0.4.1"]]
   :middleware [lein-tools-deps.plugin/resolve-dependencies-with-deps-edn]
