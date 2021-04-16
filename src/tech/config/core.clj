@@ -121,15 +121,17 @@
 
 (defn- build-config
   "Squashes the environment onto the config-*.edn files."
-  []
-  (let [final-map (coercing-merge (file-config) env)
-        print-map (->> final-map
-                       (filter #(*config-keys* (first %)))
-                       (into {}))]
-    (doseq [k (set/intersection (set (keys env))
-                                (set (keys print-map)))]
-      (alter-var-root #'*config-sources* #(assoc % k "environment")))
-    final-map))
+  ([config-map]
+   (let [final-map (coercing-merge config-map env)
+         print-map (->> final-map
+                        (filter #(*config-keys* (first %)))
+                        (into {}))]
+     (doseq [k (set/intersection (set (keys env))
+                                 (set (keys print-map)))]
+       (alter-var-root #'*config-sources* #(assoc % k "environment")))
+     final-map))
+  ([]
+   (build-config (file-config))))
 
 (defn get-config-map
   []
@@ -141,6 +143,39 @@
   "Refreshes the config (e.g. re-reading .edn files)"
   []
   (alter-var-root #'*config-map* (fn [_] nil)))
+
+
+(defmacro static-configuration
+  "Macro meant to be used during AOT compile to define the jar and classpath based
+  configuration once into a variable.
+
+  Example:
+
+```clojure
+  (def static-config (config/static-configuration))
+  (config/set-static-config! static-config)
+```"
+  []
+  (let [config-map (file-config)
+        config-sources *config-sources*
+        config-keys *config-keys*]
+    `{:config-sources ~config-sources
+      :config-keys ~config-keys
+      :config-map ~config-map}))
+
+
+(defn set-static-configuration!
+  "Given a map of static configuration information, combine with environment variables
+  and set the config global vars.  The outcome of this should be identical to
+  calling (build-config) when no config information has been requested yet.
+
+  This is meant to be used with the `static-configuration` macro."
+  [static-config]
+  (alter-var-root #'*config-map* (constantly (build-config (:config-map static-config))))
+  (alter-var-root #'*config-keys* (constantly (:config-keys static-config)))
+  (alter-var-root #'*config-sources* (constantly (:config-sources static-config)))
+  :ok)
+
 
 (defn get-configurable-options
   "This function returns all keys that are specified in .edn files, excluding
