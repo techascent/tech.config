@@ -91,7 +91,7 @@
            [(str (.getName jarfile) "/" (.getName jarentry))
             (io/reader (.getInputStream jarfile jarentry))]))))
 
-(defn file-config
+(defn- file-config
   "Loops through all of the .edn files in the jars as well as resources and
   coerce-merges them reverse alphabetically with app-config and user-config
   taking precedence over the remaining, respectively."
@@ -153,8 +153,8 @@
 
 ```clojure
   (def static-config (config/static-configuration))
-```
-  "
+  (config/set-static-config! static-config)
+```"
   []
   (let [config-map (file-config)
         config-sources *config-sources*
