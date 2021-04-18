@@ -1,5 +1,5 @@
 (ns tech.config.core
-  (:require [environ.core :refer [env]]
+  (:require [tech.config.environ :refer [read-env]]
             [clojure.java.classpath :as cp]
             [clojure.set :as set]
             [clojure.edn :as edn]
@@ -122,14 +122,15 @@
 (defn- build-config
   "Squashes the environment onto the config-*.edn files."
   ([config-map]
-   (let [final-map (coercing-merge config-map env)
-         print-map (->> final-map
-                        (filter #(*config-keys* (first %)))
-                        (into {}))]
-     (doseq [k (set/intersection (set (keys env))
-                                 (set (keys print-map)))]
-       (alter-var-root #'*config-sources* #(assoc % k "environment")))
-     final-map))
+   (let [env (read-env)]
+     (let [final-map (coercing-merge config-map env)
+           print-map (->> final-map
+                          (filter #(*config-keys* (first %)))
+                          (into {}))]
+       (doseq [k (set/intersection (set (keys env))
+                                   (set (keys print-map)))]
+         (alter-var-root #'*config-sources* #(assoc % k "environment")))
+       final-map)))
   ([]
    (build-config (file-config))))
 
