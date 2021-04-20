@@ -122,15 +122,15 @@
 (defn- build-config
   "Squashes the environment onto the config-*.edn files."
   ([config-map]
-   (let [env (read-env)]
-     (let [final-map (coercing-merge config-map env)
-           print-map (->> final-map
-                          (filter #(*config-keys* (first %)))
-                          (into {}))]
-       (doseq [k (set/intersection (set (keys env))
-                                   (set (keys print-map)))]
-         (alter-var-root #'*config-sources* #(assoc % k "environment")))
-       final-map)))
+   (let [env (read-env)
+         final-map (coercing-merge config-map env)
+         print-map (->> final-map
+                        (filter #(*config-keys* (first %)))
+                        (into {}))]
+     (doseq [k (set/intersection (set (keys env))
+                                 (set (keys print-map)))]
+       (alter-var-root #'*config-sources* #(assoc % k "environment")))
+     final-map))
   ([]
    (build-config (file-config))))
 
