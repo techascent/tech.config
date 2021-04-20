@@ -4,12 +4,11 @@
 
   :min-lein-version "2.8.1"
 
-  :plugins [[lein-environ "1.1.0"]
-            [lein-tools-deps "0.4.1"]]
-  :middleware [lein-tools-deps.plugin/resolve-dependencies-with-deps-edn]
-  :lein-tools-deps/config {:config-files [:install :user :project]}
+  :dependencies [[org.clojure/clojure "1.10.3" :scope "provided"]
+                 [environ "1.1.0"]
+                 [org.clojure/java.classpath "0.3.0"]]
 
-
+  :plugins [[lein-environ "1.1.0"]]
   :profiles {:test {:resource-paths ["test/resources"]
                     :env {:overwrite "80"
                           :env-config-overwrite "true"
