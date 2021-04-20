@@ -1,11 +1,10 @@
-(defproject techascent/tech.config "0.3.13-SNAPSHOT"
+(defproject techascent/tech.config "0.3.13"
   :description "A configuration library."
   :url "http://github.com/techascent/tech.config"
 
   :min-lein-version "2.8.1"
 
   :dependencies [[org.clojure/clojure "1.10.3" :scope "provided"]
-                 [environ "1.1.0"]
                  [org.clojure/java.classpath "0.3.0"]]
 
   :plugins [[lein-environ "1.1.0"]]
