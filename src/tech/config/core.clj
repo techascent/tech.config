@@ -4,7 +4,9 @@
             [clojure.set :as set]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint])
+  (:import [java.io File]
+           [java.util.jar JarFile]))
 
 (def ^:dynamic *config-map* nil)
 (def ^:dynamic *config-sources* {})
@@ -91,6 +93,19 @@
            [(str (.getName jarfile) "/" (.getName jarentry))
             (io/reader (.getInputStream jarfile jarentry))]))))
 
+(defn classpath-directories
+  []
+  (->> (cp/system-classpath)
+       (filter #(.isDirectory ^java.io.File %))))
+
+
+(defn classpath-jarfiles
+  []
+  (->> (cp/system-classpath)
+       (filter cp/jar-file?)
+       (map #(JarFile. ^File %))))
+
+
 (defn- file-config
   "Loops through all of the .edn files in the jars as well as resources and
   coerce-merges them reverse alphabetically with app-config and user-config
@@ -101,12 +116,12 @@
                          (let [m (group-by #(= (short-name-fn (first %)) entry) coll)]
                            (concat (get m false) (get m true))))
         update-config-sources? (empty? *config-sources*)]
-    (->> (cp/classpath-directories)
+    (->> (classpath-directories)
          (map file-seq)
          (flatten)
          (filter is-config-file?)
          (map (fn [^java.io.File f] [(.getName f) (io/reader f)]))
-         (concat (get-config-streams (cp/classpath-jarfiles)))
+         (concat (get-config-streams (classpath-jarfiles)))
          (sort-by (comp short-name-fn first))
          (reverse)
          (move-to-end-fn "app-config.edn")
