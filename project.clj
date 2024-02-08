@@ -1,6 +1,11 @@
 (defproject techascent/tech.config "0.3.16-SNAPSHOT"
   :description "A configuration library."
   :url "http://github.com/techascent/tech.config"
+  :license {:name "MIT"
+            :comment "MIT License"
+            :url "https://choosealicense.com/licenses/mit"
+            :year 2024
+            :key "mit"}
 
   :min-lein-version "2.8.1"
 
