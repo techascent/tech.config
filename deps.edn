@@ -1,0 +1,22 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        org.clojure/clojurescript {:mvn/version "1.12.134"}
+        org.clojure/java.classpath {:mvn/version "1.0.0"}
+        thheller/shadow-cljs {:mvn/version "3.3.6"}}
+ :aliases {:test {:extra-paths ["test" "test/resources"]
+                  :extra-deps {io.github.cognitect-labs/test-runner
+                               {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+                  :jvm-opts ["-Doverwrite=80"
+                             "-Denv-config-overwrite=true"
+                             "-Dcomplex-type-env-overwrite-map={:a 1 :b 3}"
+                             "-Dcomplex-type-env-overwrite-vec=[:c :b :a]"
+                             "-Dcomplex-type-env-overwrite-seq=(:c :b :a)"]
+                  :exec-fn cognitect.test-runner.api/test
+                  :exec-args {:dirs ["test"]}}
+           :test-cljs {:extra-paths ["test" "test/resources"]
+                      :main-opts ["-m" "shadow.cljs.devtools.cli" "compile" "test"]
+                      :exec-fn shadow.cljs.devtools.api/node-test
+                      :exec-args {:build :test}}
+           :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.7"}}
+                   :ns-default build}}
+ :mvn/repos {"releases" {:url "s3://techascent.jars/releases/"}}}
