@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# scripts/install — install all OS and project dependencies.
+# Safe to run more than once — skips anything already present.
+# Works on macOS (Homebrew) and Linux (apt).
+#
+# Usage:
+#   scripts/install             install everything
+#   scripts/install --no-deps   install OS tools only (skip npm + Clojure deps)
+set -e
+
+_no_deps=false
+if [ "${1:-}" = "--no-deps" ]; then
+  _no_deps=true
+fi
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+_os=$(uname -s | tr '[:upper:]' '[:lower:]')   # linux or darwin
+_arch=$(uname -m)
+case "$_arch" in
+  x86_64)        _arch=amd64 ;;
+  arm64|aarch64) _arch=arm64 ;;
+esac
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# Install a binary to /usr/local/bin.  Uses sudo on Linux; plain mv on macOS
+# (Homebrew ensures /usr/local/bin is user-writable there).
+_install_bin() {
+  local src="$1" name="$2"
+  if [ "$_os" = "linux" ]; then
+    sudo mv "$src" "/usr/local/bin/$name"
+    sudo chmod +x "/usr/local/bin/$name"
+  else
+    mv "$src" "/usr/local/bin/$name"
+    chmod +x "/usr/local/bin/$name"
+  fi
+}
+
+# ── OS packages ───────────────────────────────────────────────────────────────
+
+header "OS packages"
+
+if [ "$_os" = "darwin" ]; then
+  if ! command -v brew &>/dev/null; then
+    err "Homebrew is required on macOS. Install it from https://brew.sh then re-run."
+    exit 1
+  fi
+
+  for pkg in openjdk@21 node awscli jq; do
+    if brew list "$pkg" &>/dev/null 2>&1; then
+      ok "$pkg already installed"
+    else
+      spin "Installing $pkg"
+      brew install --quiet "$pkg"
+      clear_spin; ok "$pkg installed"
+    fi
+  done
+
+  # Clojure CLI
+  if ! command -v clj &>/dev/null; then
+    spin "Installing Clojure CLI"
+    brew install --quiet clojure/tools/clojure
+    clear_spin; ok "Clojure CLI installed"
+  else
+    ok "Clojure CLI already installed"
+  fi
+
+  # openjdk@21 is keg-only; link if java isn't already on PATH
+  if ! command -v java &>/dev/null; then
+    brew link --force openjdk@21
+  fi
+
+elif [ "$_os" = "linux" ]; then
+  to_install=()
+  command -v curl      &>/dev/null || to_install+=(curl)
+  command -v unzip     &>/dev/null || to_install+=(unzip)
+  command -v java      &>/dev/null || to_install+=(openjdk-21-jdk)
+  command -v node      &>/dev/null || to_install+=(nodejs npm)
+  command -v jq        &>/dev/null || to_install+=(jq)
+
+  if [ ${#to_install[@]} -gt 0 ]; then
+    spin "apt-get install: ${to_install[*]}"
+    sudo apt-get update -qq
+    sudo apt-get install -y "${to_install[@]}" >/dev/null
+    clear_spin; ok "apt packages installed"
+  else
+    ok "apt packages already present"
+  fi
+
+  # Clojure CLI — install if missing or older than minimum.
+  # shadow-cljs 3.x requires 1.11+.
+  _clj_min="1.11.0.0"
+  _clj_cur=$(clj -Sdescribe 2>/dev/null | sed -n 's/.*:version "\([^"]*\)".*/\1/p')
+  _need_clj=false
+
+  if [ -z "$_clj_cur" ]; then
+    _need_clj=true
+  elif [ "$(printf '%s\n' "$_clj_cur" "$_clj_min" | sort -V | head -1)" = "$_clj_cur" ] && [ "$_clj_cur" != "$_clj_min" ]; then
+    warn "Clojure CLI ${_clj_cur} < minimum ${_clj_min}"
+    _need_clj=true
+  fi
+
+  if [ "$_need_clj" = true ]; then
+    spin "Installing Clojure CLI"
+    _tmpdir=$(mktemp -d)
+    for _attempt in 1 2 3; do
+      if curl -fsSL https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh \
+        -o "$_tmpdir/clj-install.sh" 2>/dev/null; then
+        break
+      fi
+      [ "$_attempt" -lt 3 ] && echo "  retry ${_attempt}/3..." && sleep 2
+    done
+    [ ! -f "$_tmpdir/clj-install.sh" ] && { clear_spin; err "Clojure CLI download failed after 3 attempts"; exit 1; }
+    chmod +x "$_tmpdir/clj-install.sh"
+    sudo "$_tmpdir/clj-install.sh" >/dev/null
+    rm -rf "$_tmpdir"
+    clear_spin; ok "Clojure CLI installed ($(clj -Sdescribe 2>/dev/null | sed -n 's/.*:version "\([^"]*\)".*/\1/p'))"
+  else
+    ok "Clojure CLI already installed (${_clj_cur})"
+  fi
+
+  if command -v aws &>/dev/null; then
+    ok "aws-cli already installed ($(aws --version 2>&1 | cut -d' ' -f1))"
+  else
+    spin "Installing aws-cli (latest)"
+    _tmpdir=$(mktemp -d)
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+      -o "$_tmpdir/awscliv2.zip"
+    unzip -q "$_tmpdir/awscliv2.zip" -d "$_tmpdir"
+    sudo "$_tmpdir/aws/install" \
+      --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli >/dev/null
+    rm -rf "$_tmpdir"
+    clear_spin; ok "aws-cli installed ($(aws --version 2>&1 | cut -d' ' -f1))"
+  fi
+
+else
+  err "Unsupported OS: $_os"
+  exit 1
+fi
+
+# ── Vault ─────────────────────────────────────────────────────────────────────
+
+header "Vault"
+
+vault_version=1.21.3
+if ! command -v vault &>/dev/null; then
+  spin "Downloading vault ${vault_version}"
+  _tmpdir=$(mktemp -d)
+  curl -fsSL \
+    "https://releases.hashicorp.com/vault/${vault_version}/vault_${vault_version}_${_os}_${_arch}.zip" \
+    -o "$_tmpdir/vault.zip"
+  unzip -q "$_tmpdir/vault.zip" -d "$_tmpdir"
+  _install_bin "$_tmpdir/vault" vault
+  rm -rf "$_tmpdir"
+  clear_spin; ok "vault ${vault_version} installed"
+else
+  ok "vault already installed ($(vault version | head -1))"
+fi
+
+if [ "$_no_deps" = false ]; then
+
+# ── npm deps ──────────────────────────────────────────────────────────────────
+
+header "npm"
+
+if [ -d node_modules ] && [ node_modules -nt package.json ] 2>/dev/null; then
+  ok "node_modules up to date"
+else
+  spin "npm install"
+  npm install --silent
+  clear_spin; ok "npm install done"
+fi
+
+# ── Clojure / Maven deps ────────────────────────────────────────────────────
+
+header "Clojure deps"
+
+spin "shadow-cljs classpath"
+_sc_err=$(mktemp)
+if ! npx shadow-cljs classpath >/dev/null 2>"$_sc_err"; then
+  clear_spin; err "shadow-cljs classpath failed:"
+  cat "$_sc_err" >&2
+  rm -f "$_sc_err"
+  exit 1
+fi
+rm -f "$_sc_err"
+clear_spin; ok "Clojure deps resolved and shadow-cljs classpath cached"
+
+fi # _no_deps
+
+info "To authenticate with Vault for deploy scripts: vault login -method=github"
+
+ok "install complete"

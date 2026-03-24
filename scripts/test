@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+header "Clojure tests"
+clojure -X:test
+
+header "ClojureScript tests"
+npm install --silent
+npx shadow-cljs compile test
+node target/test.js
+
+ok "All tests passed"

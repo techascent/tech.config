@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# scripts/aws-creds — fetch temporary AWS credentials from Vault.
+#
+# Source this file to export credentials as env vars (local dev):
+#   source scripts/aws-creds [<role>]       # role defaults to "core"
+#   source scripts/aws-creds tytt           # scoped deploy credentials
+#
+# Write a credentials file profile (CI or explicit local use):
+#   scripts/aws-creds --write-profile [name]          # defaults to "default"
+#   scripts/aws-creds --write-profile [name] --force  # overwrite existing section without prompting
+#
+# If the named profile already exists in ~/.aws/credentials:
+#   - interactive (local): prompts before replacing it
+#   - non-interactive (CI): bails unless --force is passed
+# If the profile is absent, it is appended with no prompt.
+
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+
+export VAULT_ADDR=https://vault.techascent.com
+
+# ── argument parsing ──────────────────────────────────────────────────────────
+
+_role=core
+_write_profile=false
+_profile_name=default
+_force=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --write-profile)
+      _write_profile=true
+      if [ -n "${2:-}" ] && [[ "$2" != --* ]]; then
+        _profile_name="$2"; shift
+      fi
+      ;;
+    --force) _force=true ;;
+    --*) err "Unknown argument: $1"; exit 1 ;;
+    *) _role="$1" ;;
+  esac
+  shift
+done
+
+# ── fetch credentials ─────────────────────────────────────────────────────────
+
+spin "Fetching AWS credentials from Vault (${_role})"
+if ! _json=$(vault read -format=json "aws/sts/${_role}" 2>&1); then
+  clear_spin
+  err "vault read aws/sts/${_role} failed — is the role configured?"
+  err "$_json"
+  exit 1
+fi
+_access_key=$(echo "$_json"    | jq -r '.data.access_key')
+_secret_key=$(echo "$_json"    | jq -r '.data.secret_key')
+_session_token=$(echo "$_json" | jq -r '.data.security_token')
+clear_spin
+
+if [[ "$_access_key" == "null" || -z "$_access_key" ]]; then
+  err "Vault returned no credentials for role '${_role}' — run infra/bootstrap-iam first"
+  exit 1
+fi
+
+# ── write profile or export env vars ─────────────────────────────────────────
+
+if $_write_profile; then
+  _creds_file=~/.aws/credentials
+  _section="[$_profile_name]"
+  _region="${AWS_DEFAULT_REGION:-us-east-1}"
+  _new_section=$(printf '%s\naws_access_key_id = %s\naws_secret_access_key = %s\naws_session_token = %s\nregion = %s\n' \
+    "$_section" "$_access_key" "$_secret_key" "$_session_token" "$_region")
+
+  mkdir -p ~/.aws
+
+  if [ ! -f "$_creds_file" ]; then
+    # File doesn't exist — create it.
+    printf '%s\n' "$_new_section" > "$_creds_file"
+    ok "AWS credentials written to $_creds_file ([$_profile_name] profile)"
+
+  elif grep -q "^\[${_profile_name}\]$" "$_creds_file"; then
+    # Profile section already exists — confirm before replacing.
+    if ! $_force; then
+      if [ -t 0 ]; then
+        warn "[$_profile_name] already exists in $_creds_file."
+        printf "  Replace it? [y/N] "
+        read -r _answer
+        [[ "$_answer" == [Yy]* ]] || { info "Aborted."; exit 0; }
+      else
+        err "[$_profile_name] already exists in $_creds_file. Pass --force to replace."
+        exit 1
+      fi
+    fi
+    # Remove the existing section, then append the new one.
+    _tmp=$(mktemp)
+    awk -v section="[$_profile_name]" '
+      /^\[/ { in_section = ($0 == section) }
+      !in_section { print }
+    ' "$_creds_file" > "$_tmp"
+    printf '%s\n' "$_new_section" >> "$_tmp"
+    mv "$_tmp" "$_creds_file"
+    ok "AWS credentials replaced in $_creds_file ([$_profile_name] profile)"
+
+  else
+    # File exists but profile is absent — append.
+    printf '\n%s\n' "$_new_section" >> "$_creds_file"
+    ok "AWS credentials appended to $_creds_file ([$_profile_name] profile)"
+  fi
+
+else
+  export AWS_ACCESS_KEY_ID=$_access_key
+  export AWS_SECRET_ACCESS_KEY=$_secret_key
+  export AWS_SESSION_TOKEN=$_session_token
+  export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+  ok "AWS credentials exported to environment"
+fi
