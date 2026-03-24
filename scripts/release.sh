@@ -1,13 +1,21 @@
 #!/bin/bash
-
+# scripts/release — build, checksum, and deploy to S3 Maven repo.
+#
+# Usage:
+#   scripts/release.sh
 set -e
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+LIB_GROUP=techascent
+LIB_NAME=tech.config
+
 # ── preflight checks ─────────────────────────────────────────────────────────
 
-for cmd in clojure vault aws jq npx node; do
-  command -v "$cmd" >/dev/null || { err "Required command not found: $cmd — run scripts/install first"; exit 1; }
+for cmd in clojure vault aws jq; do
+  command -v "$cmd" >/dev/null || { err "Required command not found: $cmd"; exit 1; }
 done
 
 CURRENTBRANCH=$(git status|awk 'NR==1{print $3}');
@@ -26,8 +34,8 @@ if [ "$LOCAL" != "$REMOTE" ]; then
 fi
 
 if [ -n "$(git status --porcelain)" ]; then
-    err "Uncommitted changes — commit or stash first"
-    exit 1
+  err "Uncommitted changes — commit or stash first"
+  exit 1
 fi
 
 # ── AWS credentials for S3 maven repo ────────────────────────────────────────
@@ -47,8 +55,8 @@ SNAPSHOT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 RELEASE_VERSION="${SNAPSHOT_VERSION%-SNAPSHOT}"
 
 if [ "$SNAPSHOT_VERSION" = "$RELEASE_VERSION" ]; then
-    err "VERSION ($SNAPSHOT_VERSION) is not a snapshot — cannot release"
-    exit 1
+  err "VERSION ($SNAPSHOT_VERSION) is not a snapshot — cannot release"
+  exit 1
 fi
 
 info "Releasing version $RELEASE_VERSION"
@@ -63,13 +71,25 @@ git tag -a "v$RELEASE_VERSION" -m "v$RELEASE_VERSION"
 header "Building jar"
 clojure -T:build jar
 
-JAR_FILE="target/tech.config-${RELEASE_VERSION}.jar"
-POM_FILE="target/classes/META-INF/maven/techascent/tech.config/pom.xml"
+JAR_FILE="target/${LIB_NAME}-${RELEASE_VERSION}.jar"
+POM_FILE="target/classes/META-INF/maven/${LIB_GROUP}/${LIB_NAME}/pom.xml"
+
+header "Generating checksums"
+sha1sum "$JAR_FILE" | cut -d' ' -f1 > "${JAR_FILE}.sha1"
+md5sum "$JAR_FILE" | cut -d' ' -f1 > "${JAR_FILE}.md5"
+sha1sum "$POM_FILE" | cut -d' ' -f1 > "${POM_FILE}.sha1"
+md5sum "$POM_FILE" | cut -d' ' -f1 > "${POM_FILE}.md5"
+ok "checksums generated"
 
 header "Deploying to S3 maven repo"
-S3_BASE="s3://techascent.jars/releases/techascent/tech.config/${RELEASE_VERSION}"
-aws s3 cp "$JAR_FILE" "${S3_BASE}/tech.config-${RELEASE_VERSION}.jar"
-aws s3 cp "$POM_FILE" "${S3_BASE}/tech.config-${RELEASE_VERSION}.pom"
+S3_BASE="s3://techascent.jars/releases/${LIB_GROUP}/${LIB_NAME}/${RELEASE_VERSION}"
+aws s3 cp "$JAR_FILE"       "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.jar"
+aws s3 cp "${JAR_FILE}.sha1" "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.jar.sha1"
+aws s3 cp "${JAR_FILE}.md5"  "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.jar.md5"
+aws s3 cp "$POM_FILE"       "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.pom"
+aws s3 cp "${POM_FILE}.sha1" "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.pom.sha1"
+aws s3 cp "${POM_FILE}.md5"  "${S3_BASE}/${LIB_NAME}-${RELEASE_VERSION}.pom.md5"
+ok "deployed to S3"
 
 # ── version bump (next snapshot) ─────────────────────────────────────────────
 
