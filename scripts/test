@@ -12,4 +12,7 @@ npm install --silent
 npx shadow-cljs compile test
 node target/test.js
 
+header "Babashka tests"
+bb test/bb_test_runner.clj
+
 ok "All tests passed"

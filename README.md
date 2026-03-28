@@ -1,7 +1,7 @@
 # tech.config
 
-A Clojure and ClojureScript configuration library that abstracts configuration
-from files and environment variables.
+A Clojure, ClojureScript, and Babashka configuration library that abstracts
+configuration from files and environment variables.
 
 The library works by reading config files named `*-config.edn` from the resources
 directory (classpath in Clojure, a configurable directory in ClojureScript/Node).
@@ -65,6 +65,20 @@ The ClojureScript version reads config from:
 (config/get-config :my-setting)
 (config/get-config :my-setting "default-value")
 (config/print-config)
+```
+
+### Babashka
+
+The Babashka version reads config from classpath directories (configured via
+`:paths` in `bb.edn`) and supports `CONFIG_DIR` for scripts that run without a
+`bb.edn`.
+
+```clojure
+#!/usr/bin/env bb
+(require '[tech.config.core :as config])
+
+(config/get-config :my-setting)
+(config/get-config :my-setting "default-value")
 ```
 
 ### Precedence Hierarchy
@@ -134,10 +148,16 @@ npx shadow-cljs compile test
 node target/test.js
 ```
 
-Or via deps.edn:
+#### Running Babashka tests
 
 ```bash
-clojure -M:test-cljs && node target/test.js
+bb test/bb_test_runner.clj
+```
+
+#### Running all tests
+
+```bash
+scripts/test
 ```
 
 #### Releasing

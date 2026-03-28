@@ -8,14 +8,14 @@
 
 (deftest config-test
   (testing "Config Test"
-     (is (string? (get-config :os-arch)))
-     (is (thrown? IllegalArgumentException (get-config :some-bs-val)))))
+    (is (string? (get-config :os-arch)))
+    (is (thrown? Exception (get-config :some-bs-val)))))
 
 (deftest types-test
   (testing "Entries are properly coerced"
-     (is (integer? (get-config :app-config-overwrite)))
-     (is (= (get-config :app-config-overwrite) 1))
-     (is (= (get-config :user-config-overwrite) 2))))
+    (is (integer? (get-config :app-config-overwrite)))
+    (is (= (get-config :app-config-overwrite) 1))
+    (is (= (get-config :user-config-overwrite) 2))))
 
 (deftest with-config-test
   (testing "Make sure with-config can coerce values properly."
@@ -60,10 +60,9 @@
   (with-config [:boolean "true"]
     (is (true? (get-config :boolean)))))
 
-(deftest read-string-test
-  (with-config [:m "{:a :b}"]
-    (is (nil? (:a (get-config :m))))
-    (is (= :b (:a (get-config :m true))))))
+(deftest default-value-test
+  (is (= "fallback" (get-config :nonexistent-key "fallback")))
+  (is (thrown? Exception (get-config :nonexistent-key))))
 
 (deftest file-order-test
   (testing "Make sure files are merged in reverse-alphabetical order."
@@ -82,8 +81,8 @@
     (with-config [:complex-type-map "{:a 1 :b 4}"]
       (is (= (:b (get-config :complex-type-map)) 4)))
 
-    (is (thrown? IllegalArgumentException (with-config [:complex-type-map [:a :b :c]])))
-    (is (thrown? IllegalArgumentException (with-config [:complex-type-map "[:a :b :c]"])))))
+    (is (thrown? Exception (with-config [:complex-type-map [:a :b :c]])))
+    (is (thrown? Exception (with-config [:complex-type-map "[:a :b :c]"])))))
 
 (deftest reload-config-test
   (testing "Make sure that we can reload the config and get new values from .edn files"

@@ -1,16 +1,10 @@
 (ns tech.config.environ
-  "Copy of environ that exposes 'read-env'"
-  (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])
-            #?(:clj [clojure.java.io :as io])
-            #?(:cljs [goog.object :as obj])
+  "Reads environment variables and system properties into a config map."
+  (:require #?(:cljs [goog.object :as obj])
             [clojure.string :as str]))
-
 
 #?(:cljs (def ^:private nodejs?
            (exists? js/require)))
-
-#?(:cljs (def ^:private fs
-           (when nodejs? (js/require "fs"))))
 
 #?(:cljs (def ^:private process
            (when nodejs? (js/require "process"))))
@@ -20,17 +14,6 @@
       (str/replace "_" "-")
       (str/replace "." "-")
       (keyword)))
-
-(defn- sanitize-key [k]
-  (let [s (keywordize (name k))]
-    (if-not (= k s) (println "Warning: environ key" k "has been corrected to" s))
-    s))
-
-(defn- sanitize-val [k v]
-  (if (string? v)
-    v
-    (do (println "Warning: environ value" (pr-str v) "for key" k "has been cast to string")
-        (str v))))
 
 (defn- read-system-env []
   (->> #?(:clj (System/getenv)
@@ -43,18 +26,6 @@
           (->> (System/getProperties)
                (map (fn [[k v]] [(keywordize k) v]))
                (into {}))))
-
-(defn- slurp-file [f]
-  #?(:clj (when-let [f (io/file f)]
-            (when (.exists f)
-              (slurp f)))
-     :cljs (when (.existsSync fs f)
-             (str (.readFileSync fs f)))))
-
-(defn- read-env-file [f]
-  (when-let [content (slurp-file f)]
-    (into {} (for [[k v] (edn/read-string content)]
-               [(sanitize-key k) (sanitize-val k v)]))))
 
 (defn- warn-on-overwrite [ms]
   (doseq [[k kvs] (group-by key (apply concat ms))
@@ -69,12 +40,8 @@
 
 (defn read-env []
   #?(:clj (merge-env
-           (read-env-file ".lein-env")
-           (read-env-file (io/resource ".boot-env"))
            (read-system-env)
            (read-system-props))
      :cljs (if nodejs?
-             (merge-env
-              (read-env-file ".lein-env")
-              (read-system-env))
+             (read-system-env)
              {})))
