@@ -125,7 +125,8 @@ elif [ "$_os" = "linux" ]; then
   else
     spin "Installing aws-cli (latest)"
     _tmpdir=$(mktemp -d)
-    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+    _aws_arch=$([ "$_arch" = "arm64" ] && echo "aarch64" || echo "x86_64")
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${_aws_arch}.zip" \
       -o "$_tmpdir/awscliv2.zip"
     unzip -q "$_tmpdir/awscliv2.zip" -d "$_tmpdir"
     sudo "$_tmpdir/aws/install" \
@@ -156,6 +157,31 @@ if ! command -v vault &>/dev/null; then
   clear_spin; ok "vault ${vault_version} installed"
 else
   ok "vault already installed ($(vault version | head -1))"
+fi
+
+# ── Babashka ──────────────────────────────────────────────────────────────────
+
+header "Babashka"
+
+if ! command -v bb &>/dev/null; then
+  bb_version=$(curl -fsSL "https://api.github.com/repos/babashka/babashka/releases/latest" \
+    | sed -n 's/.*"tag_name": "v\([^"]*\)".*/\1/p')
+  spin "Downloading babashka ${bb_version}"
+  _tmpdir=$(mktemp -d)
+  _bb_os=$([ "$_os" = "darwin" ] && echo "macos" || echo "linux")
+  _bb_arch=$([ "$_arch" = "arm64" ] && echo "aarch64" || echo "amd64")
+  # Linux aarch64 only ships as -static; amd64 and macOS have non-static builds.
+  _bb_suffix=""
+  [[ "$_bb_os" == "linux" && "$_bb_arch" == "aarch64" ]] && _bb_suffix="-static"
+  curl -fsSL \
+    "https://github.com/babashka/babashka/releases/download/v${bb_version}/babashka-${bb_version}-${_bb_os}-${_bb_arch}${_bb_suffix}.tar.gz" \
+    -o "$_tmpdir/bb.tar.gz"
+  tar xzf "$_tmpdir/bb.tar.gz" -C "$_tmpdir"
+  _install_bin "$_tmpdir/bb" bb
+  rm -rf "$_tmpdir"
+  clear_spin; ok "babashka ${bb_version} installed"
+else
+  ok "babashka already installed ($(bb --version))"
 fi
 
 if [ "$_no_deps" = false ]; then
