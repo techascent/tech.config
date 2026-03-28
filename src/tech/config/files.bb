@@ -10,9 +10,15 @@
        (.contains (.getName f) "config.edn")))
 
 (defn- classpath-directories []
-  (->> (str/split (System/getProperty "java.class.path") #":")
-       (map #(File. ^String %))
-       (filter #(.isDirectory ^File %))))
+  (let [cp-dirs (->> (str/split (System/getProperty "java.class.path") #":")
+                     (map #(File. ^String %))
+                     (filter #(.isDirectory ^File %)))
+        cp-set  (set (map #(.getCanonicalPath ^File %) cp-dirs))
+        ;; CONFIG_DIR allows scripts without bb.edn to specify a config directory
+        extra   (when-let [f (some-> (System/getenv "CONFIG_DIR") (File.))]
+                  (when (and (.isDirectory f) (not (cp-set (.getCanonicalPath f))))
+                    [f]))]
+    (concat cp-dirs extra)))
 
 (defn config-file-maps
   "Returns an unordered seq of [filename config-map] pairs from

@@ -1,0 +1,43 @@
+name: Allow runner IP on Vault security group
+description: >
+  Gets the runner's public IP, opens port 443 on the Vault SG,
+  and logs into Vault via GitHub token so subsequent steps can
+  call vault commands without additional auth.
+
+inputs:
+  aws-access-key-id:
+    required: true
+  aws-secret-access-key:
+    required: true
+  github-token:
+    description: GitHub token for vault login (method=github)
+    required: true
+
+outputs:
+  ip:
+    description: Runner public IP address (pass to vault-revoke)
+    value: ${{ steps.ip.outputs.ip }}
+
+runs:
+  using: composite
+  steps:
+    - id: ip
+      shell: bash
+      run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> $GITHUB_OUTPUT
+
+    - shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+      run: |
+        aws ec2 authorize-security-group-ingress \
+          --region us-west-2 \
+          --group-id sg-702d6801 \
+          --protocol tcp --port 443 \
+          --cidr ${{ steps.ip.outputs.ip }}/32
+
+    - shell: bash
+      env:
+        VAULT_ADDR: https://vault.techascent.com
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: vault login -method=github token="$GITHUB_TOKEN" >/dev/null

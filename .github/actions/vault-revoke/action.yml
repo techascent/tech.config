@@ -1,0 +1,25 @@
+name: Revoke runner IP from Vault security group
+description: Removes the runner's IP from the Vault SG (use with if:always())
+
+inputs:
+  ip:
+    description: Runner IP from vault-allow output
+    required: true
+  aws-access-key-id:
+    required: true
+  aws-secret-access-key:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+      run: |
+        aws ec2 revoke-security-group-ingress \
+          --region us-west-2 \
+          --group-id sg-702d6801 \
+          --protocol tcp --port 443 \
+          --cidr ${{ inputs.ip }}/32

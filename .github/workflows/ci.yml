@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (JVM + CLJS + Babashka)
+    runs-on: ubuntu-latest
+    env:
+      VAULT_ADDR: https://vault.techascent.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OS tools (vault, babashka, etc.)
+        run: scripts/install --no-deps
+
+      - name: Allow runner IP on Vault
+        id: vault
+        uses: ./.github/actions/vault-allow
+        with:
+          aws-access-key-id: ${{ secrets.GH_ACTIONS_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GH_ACTIONS_AWS_SECRET_ACCESS_KEY }}
+          github-token: ${{ secrets.VAULT_GITHUB_TOKEN }}
+
+      - name: Fetch AWS credentials (core) for S3 Maven repo
+        run: scripts/aws-creds core --write-profile default --force
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Maven deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: m2-${{ hashFiles('deps.edn') }}
+          restore-keys: m2-
+
+      - name: Cache npm deps
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: npm-${{ hashFiles('package.json') }}
+
+      - name: Install dependencies
+        run: scripts/install
+
+      - name: Run tests
+        run: scripts/test
+
+      - name: Revoke runner IP from Vault
+        if: always()
+        uses: ./.github/actions/vault-revoke
+        with:
+          ip: ${{ steps.vault.outputs.ip }}
+          aws-access-key-id: ${{ secrets.GH_ACTIONS_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GH_ACTIONS_AWS_SECRET_ACCESS_KEY }}
